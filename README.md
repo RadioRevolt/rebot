@@ -1,7 +1,6 @@
 # Nisse
 
-A simple bookmarking IRC bot written in node.js. Edit ```modes``` in bot.js to suit your needs, and run the bot.
-Bookmarks are stored in JSON files in the bookmarks folder.
+A simple bookmarking IRC bot written in node.js. Edit ```modes``` in bot.js to suit your needs, and run the bot. Bookmarks are stored in JSON files in the bookmarks folder.
 
 ## Commands
 
