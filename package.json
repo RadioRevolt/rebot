@@ -1,0 +1,19 @@
+{
+    "name": "nisse",
+    "version": "0.1",
+    "bin": {
+        "nisse": "./bot.js"
+    },
+    "dependencies": {
+        "irc": "0.3.6",
+        "string": "1.7.0"
+    },
+    "author": {
+        "name": "Trygve Bertelsen Wiig",
+        "email": "trygvebw@gmail.com"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/Aqwis/nisse/issues"
+    }
+}
