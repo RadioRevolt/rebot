@@ -248,4 +248,7 @@ function main() {
             reactToMessage(nick, nick, text, message);
         }
     });
+    bot.addListener("error", function(message) {
+        console.log('ERROR: ', message);
+    });
 }
