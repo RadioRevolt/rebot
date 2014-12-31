@@ -22,9 +22,7 @@ String.prototype.smart_split = function(separator, limit) {
     var split_str = this.split(separator);
     var new_split_array = []
 
-    var i;
-
-    for (i = 0; i < limit; i++) {
+    for (var i = 0; i < limit; i++) {
         new_split_array.push(split_str[i]);
     }
 
@@ -34,7 +32,23 @@ String.prototype.smart_split = function(separator, limit) {
 }
 
 function speak(text, bundle) {
-    bundle.bot.say(bundle.to, S(text).decodeHTMLEntities().s);
+    var lines = text.split("<br>");
+    var truncated_lines = lines.slice(0, 3);
+
+    for (var i = 0; i < truncated_lines.length; i++) {
+        processed_text = S(truncated_lines[i]).decodeHTMLEntities().s
+                    .replace("<b>", "")
+                    .replace("</b>", "")
+                    .replace("<i>", "\x1D")
+                    .replace("</i>", "\x1D");
+
+        bundle.bot.say(bundle.to, processed_text);
+        addToHistory({ "from": bundle.bot.opt.nick, "to": bundle.to, "text": processed_text });
+    }
+
+    if (lines.length > truncated_lines.length) {
+        speak("... (truncated output -- originally " + lines.length + " lines) ...", bundle);
+    }
 }
 
 // LOGGING
@@ -191,10 +205,7 @@ function loadJSON(mode) {
         _json = require("./bookmarks/" + mode + ".json");
     } catch (e) {
         console.log("JSON file did not exist, creating...");
-        _json = { "..": "http://i.imgur.com/REOfM.gif" };
-        fs.writeFile("bookmarks/" + mode + ".json", JSON.stringify(_json), "utf8", function () { 
-            console.log("Added bookmark");
-        });
+        fs.writeFile("bookmarks/" + mode + ".json", JSON.stringify(_json), "utf8", function () {});
     }
 
     return _json;
@@ -210,7 +221,17 @@ function main() {
     }
 
     var mode_config = settings.modes[mode];
-    var bot = new irc.Client(mode_config['server'], mode_config['bot_name'], { channels: mode_config['channels'], realName: 'IRC bot by Aqwis', userName: S(mode_config['bot_name']).camelize().s});
+    var bot = new irc.Client(
+                mode_config['server'],
+                mode_config['bot_name'],
+                { 
+                    channels: mode_config['channels'],
+                    realName: 'IRC bot by Aqwis',
+                    userName: S(mode_config['bot_name']).camelize().s
+                }
+            );
+
+    console.log(bot);
 
     logToFile.mode = mode;
     json = loadJSON(mode);
@@ -227,13 +248,11 @@ function main() {
             result_text = lookupCommand(mode, trimmed_message.slice(1), bundle);
             if (result_text) {
                 speak(result_text, bundle);
-                addToHistory({"from": mode_config['bot_name'], "to": to, "text": S(result_text).decodeHTMLEntities().s});
             }
         } else if (trimmed_message[0] === "^") {
             result_text = repeatLine(mode, trimmed_message.slice(1), bundle);
             if (result_text) {
                 speak(result_text, bundle);
-                addToHistory({"from": mode_config['bot_name'], "to": to, "text": S(result_text).decodeHTMLEntities().s});
             }
         }
     };

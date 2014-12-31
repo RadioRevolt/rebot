@@ -8,3 +8,7 @@ A simple bookmarking IRC bot written in node.js. Copy settings.js.example to set
 * ```.unmark <keyword>``` (removes bookmark)
 * ```.search <keyword>``` (searches for bookmarks)
 * ```^n``` (repeats line current-n)
+
+## Bookmark formatting
+
+Use ```<br>``` within a bookmark to add a newline to the bookmark output. Similarly, use ```<b>``` and ```</b>``` to make the text within the tags bold (only supported in certain IRC clients) and ```<i>``` and ```</i>``` to make the text italic.
