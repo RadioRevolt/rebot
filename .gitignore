@@ -1,3 +1,4 @@
 log
 bookmarks/*.json
 node_modules
+settings.js

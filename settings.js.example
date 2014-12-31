@@ -1,0 +1,12 @@
+var settings = {}
+
+// Edit this before running the bot.
+settings.modes = {
+    'example': {
+        'server': 'irc.freenode.net',
+        'channels': ['#linux'],
+        'bot_name': 'nisse'
+    }
+};
+
+module.exports = settings;

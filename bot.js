@@ -2,15 +2,12 @@ var irc = require ('irc');
 var fs = require ('fs');
 var S = require('string');
 
-var modes = {
-    'example': {'server': 'irc.freenode.net', 'channels': ['#linux'], 'bot_name': 'nissebot'}
-};
+var settings = require('./settings');
 
 var specialCommands = {
     'bookmark': createBookmark,
     'unmark': deleteBookmark,
     'search': searchBookmarks
-    //'math': wolframClient
 }
 
 var json = {};
@@ -208,11 +205,11 @@ function loadJSON(mode) {
 function main() {
     var mode = process.argv[2];
 
-    if (!(mode in modes)) {
+    if (!(mode in settings.modes)) {
         throw "Invalid mode";
     }
 
-    var mode_config = modes[mode];
+    var mode_config = settings.modes[mode];
     var bot = new irc.Client(mode_config['server'], mode_config['bot_name'], { channels: mode_config['channels'], realName: 'IRC bot by Aqwis', userName: S(mode_config['bot_name']).camelize().s});
 
     logToFile.mode = mode;
@@ -229,7 +226,6 @@ function main() {
         if (trimmed_message[0] === ".") {
             result_text = lookupCommand(mode, trimmed_message.slice(1), bundle);
             if (result_text) {
-                //bot.say(to, S(result_text).decodeHTMLEntities().s);
                 speak(result_text, bundle);
                 addToHistory({"from": mode_config['bot_name'], "to": to, "text": S(result_text).decodeHTMLEntities().s});
             }
