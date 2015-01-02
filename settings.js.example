@@ -9,4 +9,6 @@ settings.modes = {
     }
 };
 
+settings.database_file = "db.sqlite";
+
 module.exports = settings;
