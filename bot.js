@@ -20,6 +20,7 @@ function Database(filename, mode) {
     this.db.serialize(function() {
         self.db.run("CREATE TABLE IF NOT EXISTS Bookmarks (id PRIMARY KEY, name TEXT, content TEXT, locked BOOLEAN, datetime DATETIME, mode TEXT, UNIQUE (name, mode))");
         self.db.run("CREATE TABLE IF NOT EXISTS History (id PRIMARY KEY, sender TEXT, recipient TEXT, content TEXT, datetime DATETIME, mode TEXT)");
+        self.db.run("CREATE TABLE IF NOT EXISTS Users (id PRIMARY KEY, nick TEXT, user TEXT, host TEXT, admin BOOLEAN, blocked BOOLEAN, mode TEXT)");
     });
 
     this.getBookmark = function(bookmark, callback) {
@@ -427,7 +428,7 @@ function setup(mode) {
         var trimmed_message = text.trim();
         var result_text = "";
 
-        var bundle = {"mode": mode, "bot": bot, "nick": nick, "to": to, "db": db};
+        var bundle = {"mode": mode, "bot": bot, "nick": nick, "to": to, "db": db, "message": message};
 
         addToHistory({"from": nick, "to": to, "text": text}, bundle);
 
