@@ -3,3 +3,4 @@ bookmarks/*.json
 node_modules
 settings.js
 db.sqlite
+*.swp

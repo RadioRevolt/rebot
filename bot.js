@@ -24,11 +24,11 @@ function Database(filename, mode) {
 
     this.getBookmark = function(bookmark, callback) {
         self.db.serialize(function() {
-            self.db.get("SELECT id, name, content, locked, datetime, mode FROM Bookmarks WHERE name = $name AND mode = $mode", { $name: bookmark, $mode: self.mode }, function(err, row) {
+            self.db.get("SELECT name, content, locked FROM Bookmarks WHERE name = $name AND mode = $mode", { $name: bookmark, $mode: self.mode }, function(err, row) {
                 if (err == null && typeof(row) != "undefined") {
-                    callback(row.name, row.content);
+                    callback(row.name, row.content, row.locked);
                 } else {
-                    callback(undefined, undefined);
+                    callback(undefined, undefined, undefined);
                 }
             });
         });
@@ -236,7 +236,7 @@ function repeatLine(text, bundle, callback) {
 }
 
 function lookupBookmark(text, bundle, callback) {
-    bundle.db.getBookmark(text, function(name, content) {
+    bundle.db.getBookmark(text, function(name, content, locked) {
         if (content) {
             callback(content);
         } else {
@@ -252,7 +252,7 @@ function createBookmark(text, bundle, callback) {
     var bookmark_value = split_command[2];
 
     if (bookmark && bookmark_value) {
-        bundle.db.getBookmark(bookmark, function(name, content) {
+        bundle.db.getBookmark(bookmark, function(name, content, locked) {
             if (typeof(content) != "undefined") {
                 callback("Bookmark already exists.");
             } else {
@@ -271,9 +271,11 @@ function deleteBookmark(text, bundle, callback) {
     var bookmark = split_command[1];
 
     if (bookmark) {
-        bundle.db.getBookmark(bookmark, function(name, content) {
+        bundle.db.getBookmark(bookmark, function(name, content, locked) {
             if (typeof(content) == "undefined") {
-                callback("No such bookmark");
+                callback("No such bookmark.");
+            } else if (locked == true) {
+                callback("Bookmark is locked.");
             } else {
                 bundle.db.deleteBookmark(bookmark, function(status) {
                     if (status) {
@@ -318,7 +320,7 @@ function wolframClient(text, bundle) {
 
 // ADMIN COMMANDS
 
-function lookupAdminCommand(text, bundle) {
+function lookupAdminCommand(text, bundle, callback) {
     var adminCommands = {
         'lock': lockBookmark,
         'unlock': unlockBookmark,
@@ -329,12 +331,58 @@ function lookupAdminCommand(text, bundle) {
     var command = text.split(" ", 2)[0];
 
     if (command in adminCommands) {
-        adminCommands[command](text, bundle);
+        adminCommands[command](text, bundle, callback);
     }
 }
 
-function lockBookmark(text, bundle) {
-    //
+function lockBookmark(text, bundle, callback) {
+    var split_command = text.smart_split(" ", 2);
+    var bookmark = split_command[1];
+
+    bundle.db.getBookmark(bookmark, function(name, content, locked) {
+        if (typeof(name) == "undefined") {
+            callback("No such bookmark.");
+        } else if (locked == true) {
+            callback("Bookmark is already locked.");
+        } else {
+            bundle.db.lockBookmark(bookmark, function(status) {
+                if (status) {
+                    callback("Locked bookmark \"" + bookmark + "\".");
+                } else {
+                    callback("Could not lock bookmark -- an error occurred.");
+                }
+            });
+        }
+    });
+}
+
+function unlockBookmark(text, bundle, callback) {
+    var split_command = text.smart_split(" ", 2);
+    var bookmark = split_command[1];
+
+    bundle.db.getBookmark(bookmark, function(name, content, locked) {
+        if (typeof(name) == "undefined") {
+            callback("No such bookmark.");
+        } else if (locked == false) {
+            callback("Bookmark is not locked.");
+        } else {
+            bundle.db.unlockBookmark(bookmark, function(status) {
+                if (status) {
+                    callback("Unlocked bookmark \"" + bookmark + "\".");
+                } else {
+                    callback("Could not unlock bookmark -- an error occurred.");
+                }
+            });
+        }
+    });
+}
+
+function blockUser(user, bundle, callback) {
+    callback("Not implemented.");
+}
+
+function unblockUser(user, bundle, callback) {
+    callback("Not implemented.");
 }
 
 // BOOKMARK DATABASE
