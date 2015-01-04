@@ -2,10 +2,13 @@ var irc = require ('irc');
 var fs = require ('fs');
 var S = require('string');
 var sqlite3 = require('sqlite3').verbose();
+var crypto = require('crypto');
 var uuid = require('node-uuid');
 var moment = require('moment');
 
 var settings = require('./settings');
+
+var loggedInAdmins = {};
 
 main();
 
@@ -20,35 +23,146 @@ function Database(filename, mode) {
     this.db.serialize(function() {
         self.db.run("CREATE TABLE IF NOT EXISTS Bookmarks (id PRIMARY KEY, name TEXT, content TEXT, locked BOOLEAN, datetime DATETIME, mode TEXT, UNIQUE (name, mode))");
         self.db.run("CREATE TABLE IF NOT EXISTS History (id PRIMARY KEY, sender TEXT, recipient TEXT, content TEXT, datetime DATETIME, mode TEXT)");
-        self.db.run("CREATE TABLE IF NOT EXISTS Users (id PRIMARY KEY, nick TEXT, user TEXT, host TEXT, admin BOOLEAN, blocked BOOLEAN, mode TEXT)");
+        self.db.run("CREATE TABLE IF NOT EXISTS Admins (id PRIMARY KEY, username TEXT, hash BLOB, salt BLOB, mode TEXT, UNIQUE (username, mode))");
+        self.db.run("CREATE TABLE IF NOT EXISTS Bans (id PRIMARY KEY, regex TEXT, datetime DATETIME, mode TEXT)");
     });
 
-    this.getBookmark = function(bookmark, callback) {
-        self.db.serialize(function() {
-            self.db.get("SELECT name, content, locked FROM Bookmarks WHERE name = $name AND mode = $mode", { $name: bookmark, $mode: self.mode }, function(err, row) {
-                if (err == null && typeof(row) != "undefined") {
-                    callback(row.name, row.content, row.locked);
+    this.addAdmin = function(username, password, callback) {
+        hash(password, null, function(err, key, salt) {
+            if (err) {
+                callback(false);
+            } else {
+                self.db.get("SELECT username WHERE username = $username AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
+                    if (err) {
+                        callback(false);
+                    } else {
+                        self.db.run("INSERT INTO Admins (id, username, hash, salt, mode) VALUES ($id, $username, $hash, $salt, $mode)",
+                            {
+                                $id: uuid.v4(),
+                                $username: username,
+                                $hash: key,
+                                $salt: salt,
+                                $mode: self.mode
+                            }, function(err) {
+                                if (err) {
+                                    callback(false);
+                                } else {
+                                    callback(true);
+                                }
+                            });
+                    }
+                });
+            }
+        });
+    }
+
+    this.removeAdmin = function(username, callback) {
+        self.db.run("DELETE FROM Admins WHERE username = $username AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
+            if (err) {
+                callback(false);
+            } else {
+                callback(true);
+            }
+        });
+    }
+
+    this.changeAdminPassword = function(username, newPassword, callback) {
+        hash(password, null, function(err, key, salt) {
+            if (err) {
+                callback(false);
+            } else {
+                self.db.get("SELECT username FROM Admins WHERE username = $username AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
+                    if (err) {
+                        callback(false);
+                    } else {
+                        self.db.run("UPDATE Admins SET hash = $hash, salt = $salt WHERE username = $username AND mode = $mode",
+                            {
+                                $hash: key,
+                                $salt: salt,
+                                $username: username,
+                                $mode: self.mode
+                            }, function(err) {
+                                if (err) {
+                                    callback(false);
+                                } else {
+                                    callback(true);
+                                }
+                            });
+                    }
+                });
+            }
+        });
+    }
+
+    this.getAdmin = function(username, callback) {
+        self.db.get("SELECT username, hash, salt FROM Admins WHERE username = $name AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
+            if (err == null && typeof(row) != "undefined") {
+                callback(row.username, row.hash, row.salt);
+            } else {
+                callback(undefined, undefined, undefined);
+            }
+        });
+    }
+
+    this.banRegex = function(regex, callback) {
+        self.db.run("INSERT INTO Bans (id, regex, datetime, mode) VALUES ($id, $regex, $datetime, $mode)",
+            {
+                $id: uuid.v4(),
+                $regex: regex,
+                $datetime: moment().format("YYYY-MM-DD HH:mm:ss"),
+                $mode: self.mode
+            },
+            function(err) {
+                if (err == null) {
+                    callback(true);
                 } else {
-                    callback(undefined, undefined, undefined);
+                    callback(false);
                 }
             });
+    }
+
+    this.unbanRegex = function(regex, callback) {
+        self.db.run("DELETE FROM Bans WHERE regex = $regex AND mode = $mode", { $regex: regex, $mode: self.mode }, function(err) {
+            if (err == null) {
+                callback(true);
+            } else {
+                callback(false);
+            }
+        });
+    }
+
+    this.getAllBans = function(callback) {
+        self.db.all("SELECT regex, datetime, mode FROM Bans WHERE mode = $mode", { $mode: self.mode }, function(err, rows) {
+            if (err == null && typeof(rows) != "undefined") {
+                callback(rows);
+            } else {
+                callback(undefined);
+            }
+        });
+    }
+
+    this.getBookmark = function(bookmark, callback) {
+        self.db.get("SELECT name, content, locked FROM Bookmarks WHERE name = $name AND mode = $mode", { $name: bookmark, $mode: self.mode }, function(err, row) {
+            if (err == null && typeof(row) != "undefined") {
+                callback(row.name, row.content, row.locked);
+            } else {
+                callback(undefined, undefined, undefined);
+            }
         });
     }
 
     this.searchBookmarks = function(string, callback) {
         var results = [];
-        self.db.serialize(function() {
-            self.db.each("SELECT name, content FROM Bookmarks WHERE mode = $mode AND name LIKE $string", { $string: "%" + string + "%", $mode: self.mode }, function(err, row) {
-                if (err == null) {
-                    results.push(row.name);
-                }
-            }, function(err, num) {
-                if (err == null) {
-                    callback(results);
-                } else {
-                    callback([]);
-                }
-            });
+        self.db.each("SELECT name, content FROM Bookmarks WHERE mode = $mode AND name LIKE $string", { $string: "%" + string + "%", $mode: self.mode }, function(err, row) {
+            if (err == null) {
+                results.push(row.name);
+            }
+        }, function(err, num) {
+            if (err == null) {
+                callback(results);
+            } else {
+                callback([]);
+            }
         });
     }
 
@@ -63,7 +177,7 @@ function Database(filename, mode) {
                     $datetime: moment().format("YYYY-MM-DD HH:mm:ss"),
                     $mode: self.mode
                 },
-                function(err, row) {
+                function(err) {
                     if (err == null) {
                         callback(true);
                     } else {
@@ -80,7 +194,7 @@ function Database(filename, mode) {
                     $name: bookmark,
                     $mode: self.mode
                 },
-                function(err, row) {
+                function(err) {
                     if (err == null) {
                         callback(true);
                     } else {
@@ -137,7 +251,7 @@ function Database(filename, mode) {
 
     this.getNthToLastHistoryEntry = function(n, callback) {
         self.db.serialize(function() {
-            self.db.get("SELECT id, sender, recipient, content, datetime FROM History WHERE mode = $mode ORDER BY datetime DESC LIMIT 1 OFFSET $n", { $n: Number(n), $mode: self.mode }, function(err, row) {
+            self.db.get("SELECT id, sender, recipient, content, datetime FROM History WHERE mode = $mode ORDER BY datetime DESC LIMIT 1 OFFSET $n", { $n: n, $mode: self.mode }, function(err, row) {
                 if (err == null && typeof(row) != "undefined") {
                     callback(row.id, row.sender, row.recipient, row.content, row.datetime);
                 } else {
@@ -161,6 +275,32 @@ String.prototype.smart_split = function(separator, limit) {
     new_split_array[limit] = split_str.slice(limit).join(separator);
 
     return new_split_array;
+}
+
+function hash(password, salt, callback) {
+    if (salt == null) {
+        crypto.randomBytes(128, function(err, salt) {
+            if (e) {
+                callback("Not enough entropy.", undefined, undefined);
+            } else {
+                crypto.pbkdf2(password, salt, 80000, 256, function(err, key) {
+                    if (err) {
+                        callback("An error occured during key derivation.", undefined, undefined);
+                    } else {
+                        callback(null, key, salt);
+                    }
+                });
+            }
+        });
+    } else {
+        crypto.pbkdf2(password, salt, 80000, 256, function(err, key) {
+            if (err) {
+                callback("An error occured during key derivation.", undefined, undefined);
+            } else {
+                callback(null, key, salt);
+            }
+        });
+    }
 }
 
 function speak(text, bundle) {
@@ -212,7 +352,8 @@ function lookupUserCommand(text, bundle, callback) {
     var userCommands = {
         'bookmark': createBookmark,
         'unmark': deleteBookmark,
-        'search': searchBookmarks
+        'search': searchBookmarks,
+        'login': adminLogin
     }
 
     var command = text.split(" ", 2)[0];
@@ -224,16 +365,60 @@ function lookupUserCommand(text, bundle, callback) {
     }
 }
 
-function repeatLine(text, bundle, callback) {
-    var n = split_command = text.smart_split(" ", 0);
+function adminLogin(text, bundle, callback) {
+    this.login = function(username, bundle, callback) {
+        var loginId = uuid.v4();
+        loggedInAdmins[loginId] = {
+            username: username,
+            datetime: Date.now(),
+            host: bundle.message.host
+        };
+        setTimeout(function() {
+            delete loggedInAdmins[loginId];
+        }, 30*60*1000); // automatically logged out after 30 minutes
+        callback("Successfully logged in!");
+    }
 
-    bundle.db.getNthToLastHistoryEntry(n, function(id, sender, recipient, content, datetime) {
-        if (typeof(id) == "undefined") {
-            callback("");
-        } else {
-            callback("<" + sender + ">" + " " + content);
-        }
-    });
+    var splitCommand = text.smart_split(" ", 2);
+
+    var password = splitCommand[1];
+    var username = bundle.message.user;
+
+    if (username == settings.superuser.username && password == settings.superuser.password) {
+        this.login(username, bundle, callback);
+    } else if (username && password) {
+        bundle.db.getAdmin(username, function(username, true_hash, salt) {
+            if (username == null) {
+                callback("No such admin user.");
+            } else {
+                hash(password, salt, function(hash, salt) {
+                    if (true_hash === hash) {
+                        this.login(username, bundle, callback);
+                    } else {
+                        callback("A cryptographic error occured.");
+                    }
+                });
+            }
+        });
+    } else {
+        callback("");
+    }
+}
+
+function repeatLine(text, bundle, callback) {
+    var n = split_command = text.smart_split(" ", 0)[0];
+
+    if (n && Number(n) !== 0) {
+        bundle.db.getNthToLastHistoryEntry(Number(n), function(id, sender, recipient, content, datetime) {
+            if (typeof(id) == "undefined") {
+                callback("");
+            } else {
+                callback("<" + sender + ">" + " " + content);
+            }
+        });
+    } else {
+        callback('');
+    }
 }
 
 function lookupBookmark(text, bundle, callback) {
@@ -331,8 +516,20 @@ function lookupAdminCommand(text, bundle, callback) {
 
     var command = text.split(" ", 2)[0];
 
-    if (command in adminCommands) {
-        adminCommands[command](text, bundle, callback);
+    var loggedIn = false;
+    for (var key in loggedInAdmins) {
+        if (loggedInAdmins[key].username === bundle.message.user) {
+            loggedIn = true;
+            break;
+        }
+    }
+
+    if (loggedIn) {
+        if (command in adminCommands) {
+            adminCommands[command](text, bundle, callback);
+        }
+    } else {
+        callback("");
     }
 }
 

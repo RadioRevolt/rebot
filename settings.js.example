@@ -11,4 +11,9 @@ settings.modes = {
 
 settings.database_file = "db.sqlite";
 
+settings.superuser = {
+    username: "",
+    password: ""
+}
+
 module.exports = settings;
