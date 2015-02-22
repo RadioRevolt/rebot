@@ -8,7 +8,6 @@ A simple bookmarking IRC bot written in node.js. Copy settings.js.example to set
 * ```.unmark <keyword>``` (removes bookmark)
 * ```.search <keyword>``` (searches for bookmarks)
 * ```^n``` (repeats line current-n)
-
 * ```.login <password>``` (log in as administrator or superuser -- see below)
 * ```.logout``` (log out)
 

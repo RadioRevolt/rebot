@@ -247,13 +247,13 @@ function Database(filename, mode) {
         });
     }
 
-    this.getNthToLastHistoryEntry = function(n, callback) {
+    this.getNthToLastHistoryEntry = function(n, historyOf, callback) {
         self.db.serialize(function() {
-            self.db.get("SELECT id, sender, recipient, content, datetime FROM History WHERE mode = $mode ORDER BY datetime DESC LIMIT 1 OFFSET $n", { $n: n, $mode: self.mode }, function(err, row) {
+            self.db.get("SELECT id, sender, recipient, content, datetime FROM History WHERE mode = $mode AND recipient = $recipient ORDER BY datetime DESC LIMIT 1 OFFSET $n", { $n: n, $mode: self.mode, $recipient: historyOf }, function(err, row) {
                 if (err == null && typeof(row) != "undefined") {
                     callback(row.id, row.sender, row.recipient, row.content, row.datetime);
                 } else {
-                    callback(undefined, undefined, undefined, undefined);
+                    callback(undefined, undefined, undefined, undefined, undefined);
                 }
             });
         });

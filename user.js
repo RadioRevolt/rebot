@@ -100,7 +100,7 @@ function repeatLine(text, bundle, callback) {
     var n = split_command = text.smart_split(" ", 0)[0];
 
     if (n && Number(n) !== 0) {
-        bundle.db.getNthToLastHistoryEntry(Number(n), function(id, sender, recipient, content, datetime) {
+        bundle.db.getNthToLastHistoryEntry(Number(n), bundle.to, function(id, sender, recipient, content, datetime) {
             if (typeof(id) == "undefined") {
                 callback("");
             } else {
