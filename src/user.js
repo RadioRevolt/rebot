@@ -1,6 +1,6 @@
 var uuid = require('node-uuid');
 
-var settings = require('./settings');
+var settings = require('../settings');
 var util = require('./util');
 
 exports.lookupUserCommand = lookupUserCommand;

@@ -2,10 +2,10 @@ var irc = require ('irc');
 var S = require('string');
 
 var settings = require('./settings');
-var Database = require('./db');
-var util = require('./util');
-var user = require('./user');
-var admin = require('./admin');
+var Database = require('./src/db');
+var util = require('./src/util');
+var user = require('./src/user');
+var admin = require('./src/admin');
 
 main();
 
