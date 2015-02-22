@@ -16,6 +16,19 @@ String.prototype.smart_split = function(separator, limit) {
     return new_split_array;
 }
 
+function compareBuffers(buffer1, buffer2) {
+    if (buffer1.length != buffer2.length) {
+        return false;
+    }
+    for (var i = 0; i < buffer1.length; i++) {
+        if (buffer1[i] != buffer2[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+exports.compareBuffers = compareBuffers;
+
 function htmlToIRC(string) {
     return string
                 .replace("<b>", "")
@@ -28,7 +41,7 @@ exports.htmlToIRC = htmlToIRC;
 function hash(password, salt, callback) {
     if (salt == null) {
         crypto.randomBytes(128, function(err, salt) {
-            if (e) {
+            if (err) {
                 callback("Not enough entropy.", undefined, undefined);
             } else {
                 crypto.pbkdf2(password, salt, 80000, 256, function(err, key) {

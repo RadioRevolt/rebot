@@ -7,7 +7,10 @@ function lookupAdminCommand(text, bundle, callback) {
         'lock': lockBookmark,
         'unlock': unlockBookmark,
         'block': blockUser,
-        'unblock': unblockUser
+        'unblock': unblockUser,
+        'addAdmin': addAdmin,
+        'removeAdmin': removeAdmin,
+        'changePassword': changeAdminPassword
     }
 
     var command = text.split(" ", 2)[0];
@@ -27,6 +30,47 @@ function lookupAdminCommand(text, bundle, callback) {
     } else {
         callback("");
     }
+}
+
+function addAdmin(text, bundle, callback) {
+    var split_command = text.split(" ");
+    var username = split_command[1];
+    var password = split_command[2];
+
+    bundle.db.addAdmin(username, password, function(success) {
+        if (success) {
+            callback("Successfully added admin.");
+        } else {
+            callback("An error occurred while trying to add admin.");
+        }
+    });
+}
+
+function removeAdmin(text, bundle, callback) {
+    var split_command = text.split(" ");
+    var username = split_command[1];
+
+    bundle.db.removeAdmin(username, function(success) {
+        if (success) {
+            callback("Successfully removed admin.");
+        } else {
+            callback("An error occurred while trying to remove admin.");
+        }
+    });
+}
+
+function changeAdminPassword(text, bundle, callback) {
+    var split_command = text.split(" ");
+    var newPassword = split_command[1];
+    var username = bundle.message.user;
+
+    bundle.db.changeAdminPassword(username, newPassword, function(success) {
+        if (success) {
+            callback("Successfully changed your password.");
+        } else {
+            callback("An error occurred while trying to change your password.");
+        }
+    });
 }
 
 function lockBookmark(text, bundle, callback) {

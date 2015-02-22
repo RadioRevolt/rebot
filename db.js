@@ -2,6 +2,8 @@ var sqlite3 = require('sqlite3').verbose();
 var uuid = require('node-uuid');
 var moment = require('moment');
 
+var util = require('./util');
+
 function Database(filename, mode) {
     var self = this;
 
@@ -16,12 +18,13 @@ function Database(filename, mode) {
     });
 
     this.addAdmin = function(username, password, callback) {
-        hash(password, null, function(err, key, salt) {
+        util.hash(password, null, function(err, key, salt) {
             if (err) {
                 callback(false);
+                console.log(0);
             } else {
-                self.db.get("SELECT username WHERE username = $username AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
-                    if (err) {
+                self.db.get("SELECT username FROM Admins WHERE username = $username AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
+                    if (err || typeof(row) !== "undefined") {
                         callback(false);
                     } else {
                         self.db.run("INSERT INTO Admins (id, username, hash, salt, mode) VALUES ($id, $username, $hash, $salt, $mode)",
@@ -34,6 +37,7 @@ function Database(filename, mode) {
                             }, function(err) {
                                 if (err) {
                                     callback(false);
+                                    console.log(2);
                                 } else {
                                     callback(true);
                                 }
@@ -45,22 +49,28 @@ function Database(filename, mode) {
     }
 
     this.removeAdmin = function(username, callback) {
-        self.db.run("DELETE FROM Admins WHERE username = $username AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
-            if (err) {
+        self.db.get("SELECT username FROM Admins WHERE username = $username AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
+            if (err || typeof(row) === "undefined") {
                 callback(false);
             } else {
-                callback(true);
+                self.db.run("DELETE FROM Admins WHERE username = $username AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
+                    if (err) {
+                        callback(false);
+                    } else {
+                        callback(true);
+                    }
+                });
             }
         });
     }
 
     this.changeAdminPassword = function(username, newPassword, callback) {
-        hash(password, null, function(err, key, salt) {
+        util.hash(newPassword, null, function(err, key, salt) {
             if (err) {
                 callback(false);
             } else {
                 self.db.get("SELECT username FROM Admins WHERE username = $username AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
-                    if (err) {
+                    if (err || typeof(row) === "undefined") {
                         callback(false);
                     } else {
                         self.db.run("UPDATE Admins SET hash = $hash, salt = $salt WHERE username = $username AND mode = $mode",
@@ -83,8 +93,8 @@ function Database(filename, mode) {
     }
 
     this.getAdmin = function(username, callback) {
-        self.db.get("SELECT username, hash, salt FROM Admins WHERE username = $name AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
-            if (err == null && typeof(row) != "undefined") {
+        self.db.get("SELECT username, hash, salt FROM Admins WHERE username = $username AND mode = $mode", { $username: username, $mode: self.mode }, function(err, row) {
+            if (err == null && typeof(row) !== "undefined") {
                 callback(row.username, row.hash, row.salt);
             } else {
                 callback(undefined, undefined, undefined);

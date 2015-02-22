@@ -1,19 +1,29 @@
 var settings = {}
 
-// Edit this before running the bot.
+//
+// Edit this before running the bot. All keys are mandatory
+// and must be present for the bot to work.
+// * server: hostname of the IRC server to connect to
+// * channels: array of channels the bot should connect to.
+// * bot_name: nickname of the bot
+// * superuser: here, you can define the username (i.e. the
+//              IRC username, not nickname) and password
+//              of the superuser, who can @login as admin
+//              without creating an admin user. It is
+//              recommended that you only use the superuser
+//              to create one or more admin users and then
+//              deactivate the superuser by emptying the
+//              username and password fields.
+//
 settings.modes = {
     'example': {
         'server': 'irc.freenode.net',
         'channels': ['#linux'],
-        'bot_name': 'nisse'
+        'bot_name': 'nisse',
+        'superuser': { 'username': '', 'password': '' }
     }
 };
 
 settings.database_file = "db.sqlite";
-
-settings.superuser = {
-    username: "",
-    password: ""
-}
 
 module.exports = settings;

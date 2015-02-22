@@ -11,7 +11,8 @@ function lookupUserCommand(text, bundle, callback) {
         'bookmark': createBookmark,
         'unmark': deleteBookmark,
         'search': searchBookmarks,
-        'login': adminLogin
+        'login': adminLogin,
+        'logout': adminLogout
     }
 
     var command = text.split(" ", 2)[0];
@@ -32,34 +33,66 @@ function adminLogin(text, bundle, callback) {
             host: bundle.message.host
         };
         setTimeout(function() {
-            delete util.loggedInAdmins[loginId];
+            if (util.loggedInAdmins.hasOwnProperty(loginId)) {
+                delete util.loggedInAdmins[loginId];
+            }
         }, 30*60*1000); // automatically logged out after 30 minutes
         callback("Successfully logged in!");
     }
+
+    self = this;
 
     var splitCommand = text.smart_split(" ", 2);
 
     var password = splitCommand[1];
     var username = bundle.message.user;
 
-    if (username == settings.superuser.username && password == settings.superuser.password) {
-        this.login(username, bundle, callback);
-    } else if (username && password) {
-        bundle.db.getAdmin(username, function(username, true_hash, salt) {
-            if (username == null) {
-                callback("No such admin user.");
-            } else {
-                hash(password, salt, function(hash, salt) {
-                    if (true_hash === hash) {
-                        this.login(username, bundle, callback);
-                    } else {
-                        callback("A cryptographic error occured.");
-                    }
-                });
-            }
-        });
+    var superuser_password = settings.modes[bundle.mode].superuser.password
+    var superuser_username = settings.modes[bundle.mode].superuser.username
+
+    var matchingLoginIDs = Object.keys(util.loggedInAdmins).filter(function(k) {
+        return util.loggedInAdmins[k].username === bundle.message.user;
+    });
+    if (matchingLoginIDs.length >= 1) {
+        callback("You are already logged in.");
     } else {
-        callback("");
+        if (username === superuser_username
+                && password === superuser_password
+                && superuser_username !== ''
+                && superuser_password !== '') {
+            self.login(username, bundle, callback);
+        } else if (username && password) {
+            bundle.db.getAdmin(username, function(username, true_hash, salt) {
+                if (username == null) {
+                    callback("No such admin user.");
+                } else {
+                    util.hash(password, salt, function(err, hash, salt) {
+                        if (util.compareBuffers(true_hash, hash)) {
+                            self.login(username, bundle, callback);
+                        } else {
+                            callback("A cryptographic error occured.");
+                        }
+                    });
+                }
+            });
+        } else {
+            callback("");
+        }
+    }
+}
+
+function adminLogout(text, bundle, callback) {
+    var matchingLoginIDs = Object.keys(util.loggedInAdmins).filter(function(k) {
+        return util.loggedInAdmins[k].username === bundle.message.user;
+    });
+
+    if (matchingLoginIDs.length >= 1) {
+        for (i in matchingLoginIDs) {
+            delete util.loggedInAdmins[matchingLoginIDs[i]];
+        }
+        callback('Successfully logged out.');
+    } else {
+        callback('You are not logged in.');
     }
 }
 
