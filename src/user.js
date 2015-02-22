@@ -70,7 +70,7 @@ function adminLogin(text, bundle, callback) {
                         if (util.compareBuffers(true_hash, hash)) {
                             self.login(username, bundle, callback);
                         } else {
-                            callback("A cryptographic error occured.");
+                            callback("Incorrect password.");
                         }
                     });
                 }
