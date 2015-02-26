@@ -8,8 +8,12 @@ exports.repeatLine = repeatLine;
 
 function lookupUserCommand(text, bundle, callback) {
     var userCommands = {
-        'bookmark': createBookmark,
-        'unmark': deleteBookmark,
+        'bookmark': function(text, bundle, callback) {
+            util.callUnlessBanned(createBookmark, text, bundle, callback);
+        },
+        'unmark': function(text, bundle, callback) {
+            util.callUnlessBanned(deleteBookmark, text, bundle, callback);
+        },
         'search': searchBookmarks,
         'login': adminLogin,
         'logout': adminLogout

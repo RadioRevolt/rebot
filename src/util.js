@@ -16,6 +16,29 @@ String.prototype.smart_split = function(separator, limit) {
     return new_split_array;
 }
 
+function callUnlessBanned(f, text, bundle, callback) {
+    var hostname = bundle.message.prefix;
+    var bans = bundle.db.getAllBans(function(rows) {
+        var match = false;
+        for (var i = 0; i < rows.length; i++) {
+            var re = new RegExp(rows[i].regex);
+            var match = re.test(hostname);
+
+            if (match) {
+                match = true;
+                break;
+            }
+        }
+
+        if (match) {
+            callback("");
+        } else {
+            f(text, bundle, callback);
+        }
+    });
+}
+exports.callUnlessBanned = callUnlessBanned;
+
 function compareBuffers(buffer1, buffer2) {
     if (buffer1.length != buffer2.length) {
         return false;

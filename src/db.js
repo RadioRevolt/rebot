@@ -10,6 +10,9 @@ function Database(filename, mode) {
     this.db = new sqlite3.Database(filename);
     this.mode = mode;
 
+    this.banListUpdated = true;
+    this.banListCache = [];
+
     this.db.serialize(function() {
         self.db.run("CREATE TABLE IF NOT EXISTS Bookmarks (id PRIMARY KEY, name TEXT, content TEXT, locked BOOLEAN, datetime DATETIME, mode TEXT, UNIQUE (name, mode))");
         self.db.run("CREATE TABLE IF NOT EXISTS History (id PRIMARY KEY, sender TEXT, recipient TEXT, content TEXT, datetime DATETIME, mode TEXT)");
@@ -116,6 +119,7 @@ function Database(filename, mode) {
                     },
                     function(err) {
                         if (err == null) {
+                            this.banListUpdated = true;
                             callback(true);
                         } else {
                             callback(false);
@@ -131,6 +135,7 @@ function Database(filename, mode) {
             if (err == null && rows.length > 0) {
                 self.db.run("DELETE FROM Bans WHERE regex = $regex AND mode = $mode", { $regex: regex, $mode: self.mode }, function(err) {
                     if (err == null) {
+                        this.banListUpdated = true;
                         callback(true);
                     } else {
                         callback(false);
@@ -143,13 +148,19 @@ function Database(filename, mode) {
     }
 
     this.getAllBans = function(callback) {
-        self.db.all("SELECT regex, datetime, mode FROM Bans WHERE mode = $mode", { $mode: self.mode }, function(err, rows) {
-            if (err == null && typeof(rows) != "undefined") {
-                callback(rows);
-            } else {
-                callback(undefined);
-            }
-        });
+        if (this.banListUpdated) {
+            self.db.all("SELECT regex, datetime, mode FROM Bans WHERE mode = $mode", { $mode: self.mode }, function(err, rows) {
+                if (err == null && typeof(rows) != "undefined") {
+                    this.banListCache = rows;
+                    this.banListUpdated = false;
+                    callback(rows);
+                } else {
+                    callback(undefined);
+                }
+            });
+        } else {
+            return this.banListCache;
+        }
     }
 
     this.getBookmark = function(bookmark, callback) {
