@@ -2,7 +2,7 @@
 
 # Nisse
 
-A simple bookmarking IRC bot written in node.js. Copy settings.js.example to settings.js and modify it to suit your needs, then run the bot with one of the modes defined in settings.js as the first argument. Nisse uses a simple SQLite3 database to store bookmarks and channel history; the filename of this database can also be set in settings.js.
+A simple bookmarking IRC bot written in JavaScript, using node.js. Copy settings.js.example to settings.js and modify it to suit your needs, then run the bot with one of the modes defined in settings.js as the first argument. Nisse uses a simple SQLite3 database to store bookmarks and channel history; the filename of this database can also be set in settings.js.
 
 ## Commands
 
@@ -27,8 +27,9 @@ while logged in as superuser. You can then safely remove the superuser account b
 
 * ```@lock <bookmark>``` (prevent users from editing a bookmark)
 * ```@unlock <bookmark>``` (allow users to edit bookmark)
-* ```@block <regex>``` (prevent a user, given by username regex, from creating or altering bookmarks)
-* ```@unblock <regex>``` (remove block on user)
+* ```@ban <regex>``` (prevent a user, given by hostname regex, from creating or altering bookmarks)
+* ```@unban <regex>``` (remove ban regex)
+* ```@listBans``` (list all active bans)
 * ```@addAdmin <username> <password>``` (create administrator user)
 * ```@removeAdmin <username> <password>``` (remove administrator user)
 * ```@changePassword <password>``` (change your own administrator password)

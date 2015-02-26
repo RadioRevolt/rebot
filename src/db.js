@@ -103,26 +103,39 @@ function Database(filename, mode) {
     }
 
     this.banRegex = function(regex, callback) {
-        self.db.run("INSERT INTO Bans (id, regex, datetime, mode) VALUES ($id, $regex, $datetime, $mode)",
-            {
-                $id: uuid.v4(),
-                $regex: regex,
-                $datetime: moment().format("YYYY-MM-DD HH:mm:ss"),
-                $mode: self.mode
-            },
-            function(err) {
-                if (err == null) {
-                    callback(true);
-                } else {
-                    callback(false);
-                }
-            });
+        self.db.all("SELECT regex, datetime, mode FROM Bans WHERE mode = $mode AND regex = $regex", { $mode: self.mode, $regex: regex }, function(err, rows) {
+            if (err != null || rows.length > 0) {
+                callback(false);
+            } else {
+                self.db.run("INSERT INTO Bans (id, regex, datetime, mode) VALUES ($id, $regex, $datetime, $mode)",
+                    {
+                        $id: uuid.v4(),
+                        $regex: regex,
+                        $datetime: moment().format("YYYY-MM-DD HH:mm:ss"),
+                        $mode: self.mode
+                    },
+                    function(err) {
+                        if (err == null) {
+                            callback(true);
+                        } else {
+                            callback(false);
+                        }
+                    }
+                );
+            }
+        });
     }
 
     this.unbanRegex = function(regex, callback) {
-        self.db.run("DELETE FROM Bans WHERE regex = $regex AND mode = $mode", { $regex: regex, $mode: self.mode }, function(err) {
-            if (err == null) {
-                callback(true);
+        self.db.all("SELECT regex, datetime, mode FROM Bans WHERE mode = $mode", { $mode: self.mode }, function(err, rows) {
+            if (err == null && rows.length > 0) {
+                self.db.run("DELETE FROM Bans WHERE regex = $regex AND mode = $mode", { $regex: regex, $mode: self.mode }, function(err) {
+                    if (err == null) {
+                        callback(true);
+                    } else {
+                        callback(false);
+                    }
+                });
             } else {
                 callback(false);
             }

@@ -6,8 +6,9 @@ function lookupAdminCommand(text, bundle, callback) {
     var adminCommands = {
         'lock': lockBookmark,
         'unlock': unlockBookmark,
-        'block': blockUser,
-        'unblock': unblockUser,
+        'ban': banRegex,
+        'unban': unbanRegex,
+        'listBans': listBans,
         'addAdmin': addAdmin,
         'removeAdmin': removeAdmin,
         'changePassword': changeAdminPassword
@@ -115,10 +116,41 @@ function unlockBookmark(text, bundle, callback) {
     });
 }
 
-function blockUser(user, bundle, callback) {
-    callback("Not implemented.");
+function banRegex(text, bundle, callback) {
+    var split_command = text.smart_split(" ", 2);
+    var regex = split_command[1];
+
+    bundle.db.banRegex(regex, function(success) {
+        if (success) {
+            callback("Banned regex " + regex + ".");
+        } else {
+            callback("An error occured while banning regex " + regex + ". Maybe it's already banned?");
+        }
+    });
 }
 
-function unblockUser(user, bundle, callback) {
-    callback("Not implemented.");
+function unbanRegex(text, bundle, callback) {
+    var split_command = text.smart_split(" ", 2);
+    var regex = split_command[1];
+
+    bundle.db.unbanRegex(regex, function(success) {
+        if (success) {
+            callback("Removed ban on regex " + regex + ".");
+        } else {
+            callback("An error occured while removing ban on regex " + regex + ". Are you sure it's banned?");
+        }
+    });
+}
+
+function listBans(text, bundle, callback) {
+    bundle.db.getAllBans(function(bans) {
+        if (bans.length > 0) {
+            callback("List of banned regexes:");
+            for (var i = 0; i < bans.length; i++) {
+                callback(" * " + bans[i].regex);
+            }
+        } else {
+            callback("No banned regexes.");
+        }
+    });
 }
