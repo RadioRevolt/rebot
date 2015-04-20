@@ -16,6 +16,15 @@ String.prototype.smart_split = function(separator, limit) {
     return new_split_array;
 }
 
+String.prototype.format = function() {
+    var formatted = this;
+    for (var i = 0; i < arguments.length; i++) {
+        var regexp = new RegExp('\\{'+i+'\\}', 'gi');
+        formatted = formatted.replace(regexp, arguments[i]);
+    }
+    return formatted;
+};
+
 function callUnlessBanned(f, text, bundle, callback) {
     var hostname = bundle.message.prefix;
     var bans = bundle.db.getAllBans(function(rows) {
@@ -60,33 +69,6 @@ function htmlToIRC(string) {
                 .replace("</i>", "\x1D");
 }
 exports.htmlToIRC = htmlToIRC;
-
-function hash(password, salt, callback) {
-    if (salt == null) {
-        crypto.randomBytes(128, function(err, salt) {
-            if (err) {
-                callback("Not enough entropy.", undefined, undefined);
-            } else {
-                crypto.pbkdf2(password, salt, 80000, 256, function(err, key) {
-                    if (err) {
-                        callback("An error occured during key derivation.", undefined, undefined);
-                    } else {
-                        callback(null, key, salt);
-                    }
-                });
-            }
-        });
-    } else {
-        crypto.pbkdf2(password, salt, 80000, 256, function(err, key) {
-            if (err) {
-                callback("An error occured during key derivation.", undefined, undefined);
-            } else {
-                callback(null, key, salt);
-            }
-        });
-    }
-}
-exports.hash = hash;
 
 /* Logging */
 

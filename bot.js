@@ -1,11 +1,11 @@
 var irc = require ('irc');
+var http = require('http');
 var S = require('string');
 
 var settings = require('./settings');
 var Database = require('./src/db');
 var util = require('./src/util');
 var user = require('./src/user');
-var admin = require('./src/admin');
 
 main();
 
@@ -25,6 +25,15 @@ function speak(text, bundle) {
     }
 }
 
+function hasFields(dict, fieldArray) {
+    for (f in fieldArray) {
+        if (!dict.hasOwnProperty(fieldArray[f])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function setup(mode) {
     var mode_config = settings.modes[mode];
     var db = new Database(settings.database_file, mode);
@@ -32,15 +41,80 @@ function setup(mode) {
                 mode_config['server'],
                 mode_config['bot_name'],
                 { 
-                    channels: mode_config['channels'],
+                    channels: [mode_config['channel']],
                     realName: 'IRC bot by Aqwis',
-                    userName: S(mode_config['bot_name']).camelize().s
+                    userName: S(mode_config['bot_name']).camelize().s,
+                    debug: true,
+                    showErrors: true
                 }
             );
 
     util.logToFile.mode = mode;
 
-    var reactToMessage = function(nick, to, text, message) {
+    var httpServer = http.createServer(function(req, res) {
+        res.writeHead(200, {'Content-Type': 'application/json'});
+    });
+    httpServer.listen(8050, '0.0.0.0');
+
+    var handleHTTPMessage = function(json) {
+        if (!json.event) {
+            console.log("Received JSON did not have an event field. Ignoring.");
+            return;
+        }
+
+        if (json.token != mode_config['token']) {
+            console.log("Incorrect/no token provided. Ignoring.");
+            return;
+        }
+
+        var bundle = {
+            "mode": mode,
+            "bot": bot,
+            "nick": bot.opt.nick,
+            "to": mode_config['channel'],
+            "db": db,
+            "message": null
+        };
+
+        if (json.event == "other" && hasFields(json, ['raw_text'])) {
+            speak(json.raw_text, bundle);
+        } else if (json.event == "silence" && hasFields(json, ['duration', 'show', 'datetime'])) {
+            speak("STILLE PÅ STREAMEN: Stille i {0}. Rapportert {1}, under en sending av {2}.".format(json.duration, json.datetime, json.show), bundle);
+        }
+    }
+    
+    var reactToHTTP = function(req, res) {
+        console.log("RECEIVED MESSAGE");
+        if (req.method == 'POST') {
+            var data = "";
+            req.on('data', function(data_fragment) {
+                data += data_fragment;
+                if (data.length > 1e6) {
+                    request.connection.destroy();
+                }
+            });
+
+            req.on('end', function() {
+                try {
+                    var j = JSON.parse(data);
+                    handleHTTPMessage(j);
+                    res.end();
+                } catch (e) {
+                    console.log(e);
+                    console.log("An error occurred while parsing the JSON. It is possible that it is, in fact, not JSON at all!");
+                    res.statusCode = 400;
+                    res.end();
+                }
+            });
+        } else {
+            console.log('GET request, ignored');
+            req.connection.destroy();
+        }
+    }
+
+    httpServer.addListener('request', reactToHTTP);
+
+    var reactToCommand = function(nick, to, text, message) {
         var trimmed_message = text.trim();
         var result_text = "";
 
@@ -55,21 +129,7 @@ function setup(mode) {
 
         util.addToHistory({"from": nick, "to": to, "text": text}, bundle);
 
-        if (trimmed_message[0] === ".") {
-            // Commands available to all users are prefixed with .
-            user.lookupUserCommand(trimmed_message.slice(1), bundle, function(result_text) {
-                if (result_text) {
-                    speak(result_text, bundle);
-                }
-            });
-        } else if (trimmed_message[0] === "@") {
-            // Commands available to administrators are prefixed with @
-            admin.lookupAdminCommand(trimmed_message.slice(1), bundle, function(result_text) {
-                if (result_text) {
-                    speak(result_text, bundle);
-                }
-            });
-        } else if (trimmed_message[0] === "^") {
+        if (trimmed_message[0] === "^") {
             user.repeatLine(trimmed_message.slice(1), bundle, function(result_text) {
                 if (result_text) {
                     speak(result_text, bundle);
@@ -78,10 +138,10 @@ function setup(mode) {
         }
     };
 
-    bot.addListener("message#", reactToMessage);
+    bot.addListener("message#", reactToCommand);
     bot.addListener("message", function(nick, to, text, message) {
         if (to === mode_config['bot_name']) {
-            reactToMessage(nick, nick, text, message);
+            reactToCommand(nick, nick, text, message);
         }
     });
     bot.addListener("error", function(message) {
@@ -100,16 +160,9 @@ function convert(mode) {
 function main() {
     var mode = process.argv[2];
 
-    if (mode == "convert") {
-        if (!(process.argv[3] in settings.modes)) {
-            throw "Please specify a mode to convert"
-        }
-        convert(process.argv[3]);
+    if (!(mode in settings.modes)) {
+        throw "Invalid mode";
     } else {
-        if (!(mode in settings.modes)) {
-            throw "Invalid mode";
-        } else {
-            setup(mode);
-        }
+        setup(mode);
     }
 }
